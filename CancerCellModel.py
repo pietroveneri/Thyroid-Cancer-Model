@@ -1,22 +1,55 @@
 #%%
-from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, learning_curve, validation_curve, KFold
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, mean_squared_error, roc_curve, auc, precision_recall_curve
+from sklearn.metrics import accuracy_score, roc_curve, auc, precision_score, recall_score, f1_score
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier, AdaBoostClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.decomposition import PCA
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from sklearn.ensemble import VotingClassifier
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
 #%%
-data = load_breast_cancer()
-dt = pd.DataFrame(data.data, columns=data.feature_names)
-X = data.data
-y = data.target
+
+df = pd.read_csv('data/Thyroid_Diff.csv')
+df.head()
+
+# Identify categorical columns
+categorical_columns = ['Gender', 'Smoking', 'Hx Smoking', 'Hx Radiothreapy', 
+                      'Thyroid Function', 'Physical Examination', 'Adenopathy',
+                      'Pathology', 'Focality', 'Risk', 'T', 'N', 'M', 'Stage',
+                      'Response', 'Recurred']
+
+# Store original categories for 'Recurred' before conversion
+recurred_categories = df['Recurred'].unique()
+
+# Convert categorical columns to category type
+for col in categorical_columns:
+    df[col] = df[col].astype('category')
+
+# Convert categorical variables to numerical codes
+for col in categorical_columns:
+    df[col] = df[col].cat.codes
+
+#%%
+data = df.values
+# Use all features except the target variable
+X = data[:, :-1]  # All columns except the last one
+y = data[:, -1]   # Last column (Recurred)
 
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
@@ -24,147 +57,448 @@ X_scaled = scaler.fit_transform(X)
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.33, random_state=42)
 
 #%%
+
 models = {
+    'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),
+    'KNN': KNeighborsClassifier(),
+    'Decision Tree': DecisionTreeClassifier(random_state=42),
+    'Random Forest': RandomForestClassifier(random_state=42),
+    'Gradient Boosting': GradientBoostingClassifier(random_state=42),
+    'AdaBoost': AdaBoostClassifier(random_state=42),
+    'SVM': SVC(random_state=42, probability=True),  # Added probability=True for predict_proba
     'Naive Bayes': GaussianNB(),
-    'SVM': SVC(),
-    'Random Forest': RandomForestClassifier()
+    'Neural Network': MLPClassifier(max_iter=1000, random_state=42),
+    'LDA': LinearDiscriminantAnalysis(),
+    'Extra Trees': ExtraTreesClassifier(random_state=42)
 }
-#%%
+
+# Perform cross-validation for each model
 cv_results = {}
+print("\nCross-Validation Results (5-fold):")
+print("-" * 50)
 
 for name, model in models.items():
     scores = cross_val_score(model, X_scaled, y, cv=5, scoring='accuracy')
-    cv_results[name] = scores.mean()
-    print(f"{name} Cross-Validation Accuracy: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})")
+    cv_results[name] = {
+        'mean_score': scores.mean(),
+        'std_score': scores.std()
+    }
+    print(f"{name:20} Accuracy: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})")
 
-# %%
-param_grid = {
-    'n_estimators': [100, 200, 300],
-    'max_depth': [None, 10, 20, 30],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4]
-}
+# Sort models by mean accuracy
+sorted_results = sorted(cv_results.items(), key=lambda x: x[1]['mean_score'], reverse=True)
 
-rf = RandomForestClassifier(random_state=42)
-grid_search = GridSearchCV(rf, param_grid, cv=5, scoring='accuracy', n_jobs  = 1)
-grid_search.fit(X_train, y_train)
-print(f"Best Parameters: {grid_search.best_params_}")
-print(f"Best Score: {grid_search.best_score_:.3f}")
+print("\nModels ranked by accuracy:")
+print("-" * 50)
+for name, scores in sorted_results:
+    print(f"{name:20} Accuracy: {scores['mean_score']:.3f} (+/- {scores['std_score'] * 2:.3f})")
 
-#%%
+# Get the best performing model
+best_model_name = sorted_results[0][0]
+best_model = models[best_model_name]
 
-best_model = grid_search.best_estimator_
+print(f"\nBest performing model: {best_model_name}")
+
+# Fine-tune the best model
+if best_model_name == 'AdaBoost':
+    param_grid = {
+        'n_estimators': [50, 100, 200, 300],
+        'learning_rate': [0.01, 0.1, 0.5, 1]
+    }
+elif best_model_name == 'SVM':
+    param_grid = {
+        'C': [0.1, 1, 10, 100],
+        'kernel': ['linear', 'rbf', 'poly'],
+        'class_weight': [None, 'balanced']
+    }
+elif best_model_name == 'Random Forest':
+    param_grid = {
+        'n_estimators': [100, 200, 300],
+        'max_depth': [None, 10, 20, 30],
+        'min_samples_split': [2, 5, 10]
+    }
+else:
+    param_grid = {}  # Use default parameters for other models
+
+if param_grid:
+    print(f"\nFine-tuning {best_model_name}...")
+    grid_search = GridSearchCV(best_model, param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+    grid_search.fit(X_train, y_train)
+    print(f"Best Parameters: {grid_search.best_params_}")
+    print(f"Best CV Score: {grid_search.best_score_:.3f}")
+    best_model = grid_search.best_estimator_
+
+# Train and evaluate the best model
 best_model.fit(X_train, y_train)
 y_pred = best_model.predict(X_test)
-y_pred_proba = best_model.predict_proba(X_test)[:, 1] # probability of the positive class
+y_pred_proba = best_model.predict_proba(X_test)[:, 1]
 
-#%%
-plt.figure(figsize = (10,8))
+# Print comprehensive evaluation metrics
+print("\nModel Evaluation Metrics:")
+print("-" * 50)
+print(classification_report(y_test, y_pred, target_names=recurred_categories))
+
+# Plot confusion matrix
+plt.figure(figsize=(10, 8)) 
 cm = confusion_matrix(y_test, y_pred)
 cm_percentage = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
 
 plt.figure(figsize=(8,6))
-sns.heatmap(cm, annot=True, fmt = 'd', cmap = 'Blues')
-plt.title('Confusion Matrix (Counts)')
-plt.ylabel('True Label')
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=recurred_categories,
+            yticklabels=recurred_categories)
+plt.title(f'Confusion Matrix - {best_model_name}')
 plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
 plt.show()
 
-#%%
-
-plt.figure(figsize = (8,6))
-sns.heatmap(cm_percentage, annot = True, fmt='.1f', cmap= 'Blues')
-plt.title('Confusion Matrix (Percentages)')
-plt.ylabel('True Label')
+# Plot percentage confusion matrix
+plt.figure(figsize=(8,6))
+sns.heatmap(cm_percentage, annot=True, fmt='.1f', cmap='Blues',
+            xticklabels=recurred_categories,
+            yticklabels=recurred_categories)
+plt.title(f'Confusion Matrix (Percentages) - {best_model_name}')
 plt.xlabel('Predicted Label')
-plt.tight_layout
+plt.ylabel('True Label')
 plt.show()
 
-# %%
-
-# ROC curve
-
-plt.figure(figsize=(8, 6 ))
+# Plot ROC curve
 fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
 roc_auc = auc(fpr, tpr)
 
-plt.plot(fpr, tpr, color='darkorange', lw = 2, label = f'ROC curve (AUC = {roc_auc:.2f})')
-plt.plot([0, 1], [0, 1], color = 'navy', lw=2, linestyle ='--')
+plt.figure(figsize=(8,6))
+plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
 plt.xlim([0.0, 1.0])
-plt.ylim([0.0,1.05])
+plt.ylim([0.0, 1.05])
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.title(f'ROC Curve - {best_model_name}')
 plt.legend(loc="lower right")
 plt.show()
 
-#%%
+# %%
 
-# Precision Recall Curve
+# Feature Selection and Engineering
+print("\nModel Improvement Analysis:")
+print("-" * 50)
 
-plt.figure(figsize = (10,6))
-precision, recall, _ = precision_recall_curve(y_test, y_pred_proba)
-pr_auc = auc(recall, precision)
-
-plt.plot(recall, precision, color = 'blue', lw = 2, label = f'PR curve (AUC = {pr_auc:.2f})')
-plt.xlabel('Recall')
-plt.ylabel('Precision')
-plt.title('Precision-Recall Curve')
-plt.legend(loc='lower left')
-plt.show()
-
-
-#%%
-
-# Error Analysis by Prediciton Probability
-
-plt.figure(figsize = (10,6))
-probabilities = pd.DataFrame({
-    'True_Label': y_test,
-    'Predicted_Probability': y_pred_proba
+# 1. Feature Selection
+print("\n1. Feature Selection Analysis:")
+selector = SelectKBest(f_classif, k='all')
+selector.fit(X_scaled, y)
+feature_scores = pd.DataFrame({
+    'Feature': df.columns[:-1],  # Exclude target variable
+    'Score': selector.scores_
 })
+feature_scores = feature_scores.sort_values('Score', ascending=False)
+print("\nFeature Importance Scores:")
+print(feature_scores)
 
-sns.histplot(data = probabilities, x ='Predicted_Probability', hue = 'True_Label',
-             multiple = 'stack', bins = 20)
-plt.title('Distribution of Prediction Probabilities')
-plt.xlabel('Prediction Probability')
-plt.ylabel('Count')
-plt.show()
-
-#%%
-
-# Feature-wise Error Analysis
-
-feature_importance = pd.DataFrame({
-    'feature': data.feature_names,
-    'importance' : best_model.feature_importances_
-})
-feature_importance = feature_importance.sort_values('importance', ascending=False)
-
-top_features = feature_importance.head(5)['feature'].tolist()
-plt.figure(figsize=(15, 10))
-for i, feature in enumerate(top_features, 1):
-    plt.subplot(2, 3, i)
-    sns.boxplot(x='True_Label', y=feature, data=pd.DataFrame({
-        'True_Label': y_test,
-        feature: X_test[:, data.feature_names.tolist().index(feature)]
-    }))
-    plt.title(f'Distribution of {feature}')
+# Plot feature importance
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Score', y='Feature', data=feature_scores)
+plt.title('Feature Importance Scores')
 plt.tight_layout()
 plt.show()
 
+# %% 
+
+# 2. PCA Analysis
+print("\n2. PCA Analysis:")
+pca = PCA()
+X_pca = pca.fit_transform(X_scaled)
+explained_variance = pca.explained_variance_ratio_
+cumulative_variance = np.cumsum(explained_variance)
+
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, len(explained_variance) + 1), cumulative_variance, 'bo-')
+plt.axhline(y=0.95, color='r', linestyle='--')
+plt.xlabel('Number of Components')
+plt.ylabel('Cumulative Explained Variance')
+plt.title('PCA Cumulative Explained Variance')
+plt.show()
+
+# %% 
+
+# 3. Class Distribution Analysis
+print("\n3. Class Distribution Analysis:")
+class_dist = pd.Series(y).value_counts()
+print("\nClass Distribution:")
+print(class_dist)
+
+plt.figure(figsize=(8, 6))
+sns.barplot(x=class_dist.index, y=class_dist.values)
+plt.title('Class Distribution')
+plt.xlabel('Class')
+plt.ylabel('Count')
+plt.show()
+
+# %% 
+# 4. Try different sampling strategies
+print("\n4. Testing Different Sampling Strategies:")
+
+# Create sampling strategies
+samplers = {
+    'Original': None,
+    'SMOTE': SMOTE(random_state=42),
+    'RandomUnderSampler': RandomUnderSampler(random_state=42)
+}
+
+# Test each sampling strategy
+for name, sampler in samplers.items():
+    if sampler is None:
+        X_resampled, y_resampled = X_train, y_train
+    else:
+        X_resampled, y_resampled = sampler.fit_resample(X_train, y_train)
+    
+    # Train and evaluate
+    model = best_model.__class__(**best_model.get_params())
+    model.fit(X_resampled, y_resampled)
+    y_pred = model.predict(X_test)
+    score = accuracy_score(y_test, y_pred)
+    print(f"{name:20} Accuracy: {score:.3f}")
+# %% 
+# 5. Try ensemble methods
+print("\n5. Testing Ensemble Methods:")
+
+# Create ensemble of best models
+top_models = {name: model for name, model in models.items() 
+             if name in [m[0] for m in sorted_results[:3]]}
+
+ensemble = VotingClassifier(
+    estimators=[(name, model) for name, model in top_models.items()],
+    voting='soft'
+)
+
+ensemble.fit(X_train, y_train)
+y_pred_ensemble = ensemble.predict(X_test)
+ensemble_score = accuracy_score(y_test, y_pred_ensemble)
+print(f"Ensemble Accuracy: {ensemble_score:.3f}")
+
+# Compare ensemble with best single model
+print(f"Best Single Model ({best_model_name}) Accuracy: {accuracy_score(y_test, y_pred):.3f}")
+# %%
+# 6. Cross-validation with different metrics
+print("\n6. Cross-validation with different metrics:")
+scoring_metrics = {
+    'accuracy': 'accuracy',
+    'precision': 'precision',
+    'recall': 'recall',
+    'f1': 'f1',
+    'roc_auc': 'roc_auc'
+}
+
+for metric_name, metric in scoring_metrics.items():
+    scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring=metric)
+    print(f"{metric_name:10} Score: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})")
+
+# Recommendations based on analysis
+print("\nRecommendations for Model Improvement:")
+print("-" * 50)
+
+# Feature selection recommendation
+print("\n1. Feature Selection:")
+print(f"Consider using only the top {sum(cumulative_variance < 0.95)} features that explain 95% of variance")
+print("Top 5 most important features:")
+print(feature_scores.head().to_string())
+
+# Sampling strategy recommendation
+print("\n2. Sampling Strategy:")
+if class_dist[0] / class_dist[1] > 1.5:
+    print("Significant class imbalance detected. Consider using SMOTE or other sampling techniques.")
+
+# Model complexity recommendation
+print("\n3. Model Complexity:")
+if best_model_name in ['Random Forest', 'Gradient Boosting']:
+    print("Consider increasing model complexity by adding more trees or depth")
+elif best_model_name in ['SVM', 'Neural Network']:
+    print("Consider adjusting regularization parameters")
+else:
+    print("...")
+
+# Ensemble recommendation
+print("\n4. Ensemble Methods:")
+if ensemble_score > accuracy_score(y_test, y_pred):
+    print("Ensemble method shows improvement. Consider using voting or stacking of top models.")
+else:
+    print("Single model performs better. Focus on tuning the best model.")
+
+# Final model selection
+print("\n5. Final Model Selection:")
+if ensemble_score > accuracy_score(y_test, y_pred):
+    print("Recommended to use the ensemble model")
+    best_model = ensemble
+else:
+    print(f"Recommended to use the {best_model_name} model")
+# %% 
+from sklearn.model_selection import learning_curve, validation_curve, KFold
+from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall_score, f1_score
+import numpy as np
+
+print("\nOverfitting Analysis and Validation:")
+print("-" * 50)
+
+# 1. Learning Curves
+print("\n1. Learning Curves Analysis:")
+train_sizes, train_scores, test_scores = learning_curve(
+    best_model, X_scaled, y,
+    cv=5,
+    n_jobs=-1,
+    train_sizes=np.linspace(0.1, 1.0, 10),
+    scoring='accuracy'
+)
+
+train_mean = np.mean(train_scores, axis=1)
+train_std = np.std(train_scores, axis=1)
+test_mean = np.mean(test_scores, axis=1)
+test_std = np.std(test_scores, axis=1)
+
+plt.figure(figsize=(10, 6))
+plt.plot(train_sizes, train_mean, label='Training score')
+plt.plot(train_sizes, test_mean, label='Cross-validation score')
+plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, alpha=0.1)
+plt.fill_between(train_sizes, test_mean - test_std, test_mean + test_std, alpha=0.1)
+plt.xlabel('Training Examples')
+plt.ylabel('Score')
+plt.title('Learning Curves')
+plt.legend(loc='best')
+plt.grid(True)
+plt.show()
+# %%
+# 2. Validation Curves for key parameters
+print("\n2. Validation Curves Analysis:")
+
+if best_model_name == 'AdaBoost':
+    param_name = 'n_estimators'
+    param_range = [50, 100, 200, 300, 400, 500]
+elif best_model_name == 'Random Forest':
+    param_name = 'n_estimators'
+    param_range = [50, 100, 200, 300, 400, 500]
+elif best_model_name == 'SVM':
+    param_name = 'C'
+    param_range = [0.1, 1, 10, 100, 1000]
+elif best_model_name == 'Gradient Boosting':
+    param_name = 'learning_rate'
+    param_range = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5]
+else:
+    param_name = 'max_iter'
+    param_range = [100, 500, 1000, 2000, 3000]
+
+train_scores, test_scores = validation_curve(
+    best_model, X_scaled, y,
+    param_name=param_name,
+    param_range=param_range,
+    cv=5,
+    scoring='accuracy',
+    n_jobs=-1
+)
+
+train_mean = np.mean(train_scores, axis=1)
+train_std = np.std(train_scores, axis=1)
+test_mean = np.mean(test_scores, axis=1)
+test_std = np.std(test_scores, axis=1)
+
+plt.figure(figsize=(10, 6))
+plt.plot(param_range, train_mean, label='Training score')
+plt.plot(param_range, test_mean, label='Cross-validation score')
+plt.fill_between(param_range, train_mean - train_std, train_mean + train_std, alpha=0.1)
+plt.fill_between(param_range, test_mean - test_std, test_mean + test_std, alpha=0.1)
+plt.xlabel(param_name)
+plt.ylabel('Score')
+plt.title(f'Validation Curve for {param_name}')
+plt.legend(loc='best')
+plt.grid(True)
+plt.show()
+# %%
+# 3. K-Fold Cross Validation with multiple metrics
+print("\n3. K-Fold Cross Validation with Multiple Metrics:")
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+metrics = {
+    'accuracy': accuracy_score,
+    'precision': precision_score,
+    'recall': recall_score,
+    'f1': f1_score
+}
+
+cv_results = {metric: [] for metric in metrics.keys()}
+
+for train_index, test_index in kf.split(X_scaled):
+    X_train_fold, X_test_fold = X_scaled[train_index], X_scaled[test_index]
+    y_train_fold, y_test_fold = y[train_index], y[test_index]
+    
+    # Train and predict
+    best_model.fit(X_train_fold, y_train_fold)
+    y_pred_fold = best_model.predict(X_test_fold)
+    
+    # Calculate metrics
+    for metric_name, metric_func in metrics.items():
+        score = metric_func(y_test_fold, y_pred_fold)
+        cv_results[metric_name].append(score)
+
+# Print results
+print("\nCross-validation results (mean ± std):")
+for metric_name, scores in cv_results.items():
+    mean_score = np.mean(scores)
+    std_score = np.std(scores)
+    print(f"{metric_name:10}: {mean_score:.3f} ± {std_score:.3f}")
+# %%
+# 4. Bootstrap Validation
+print("\n4. Bootstrap Validation:")
+n_iterations = 1000
+bootstrap_scores = []
+
+for i in range(n_iterations):
+    # Create bootstrap sample
+    indices = np.random.randint(0, len(X_scaled), len(X_scaled))
+    X_bootstrap = X_scaled[indices]
+    y_bootstrap = y[indices]
+    
+    # Split into train and test
+    X_train_bs, X_test_bs, y_train_bs, y_test_bs = train_test_split(
+        X_bootstrap, y_bootstrap, test_size=0.2, random_state=42
+    )
+    
+    # Train and evaluate
+    best_model.fit(X_train_bs, y_train_bs)
+    score = best_model.score(X_test_bs, y_test_bs)
+    bootstrap_scores.append(score)
+
+# Calculate confidence intervals
+confidence_interval = np.percentile(bootstrap_scores, [2.5, 97.5])
+print(f"\nBootstrap 95% Confidence Interval: [{confidence_interval[0]:.3f}, {confidence_interval[1]:.3f}]")
+# %%
+# 5. Overfitting Analysis
+print("\n5. Overfitting Analysis:")
+train_score = best_model.score(X_train, y_train)
+test_score = best_model.score(X_test, y_test)
+print(f"Training Score: {train_score:.3f}")
+print(f"Test Score: {test_score:.3f}")
+print(f"Difference (Train - Test): {train_score - test_score:.3f}")
+
+if train_score - test_score > 0.1:
+    print("\nWARNING: Model might be overfitting!")
+    print("Consider:")
+    print("1. Reducing model complexity")
+    print("2. Adding regularization")
+    print("3. Collecting more training data")
+    print("4. Using feature selection to reduce dimensionality")
+else:
+    print("\nModel shows good generalization!")
+# %%
+# 6. Final Model Evaluation with Confidence
+print("\n6. Final Model Evaluation with Confidence:")
+print(f"Model: {best_model_name}")
+print(f"Average CV Score: {np.mean(cv_results['accuracy']):.3f} ± {np.std(cv_results['accuracy']):.3f}")
+print(f"95% Confidence Interval: [{confidence_interval[0]:.3f}, {confidence_interval[1]:.3f}]")
+print(f"Overfitting Indicator: {train_score - test_score:.3f}")
+
+# Save the final model if it shows good generalization
+if train_score - test_score <= 0.1:
+    print("\nModel shows good generalization.")
+    #import joblib
+    #joblib.dump(best_model, 'thyroid_cancer_model.joblib')
+else:
+    print("\nModel needs improvement before deployment.")
 
 # %%
-
-
-'''
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, 
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
-OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
-IN THE SOFTWARE
-
-'''
