@@ -140,7 +140,7 @@ y_pred_proba = best_model.predict_proba(X_test)[:, 1]
 print("\nModel Evaluation Metrics:")
 print("-" * 50)
 print(classification_report(y_test, y_pred, target_names=recurred_categories))
-
+#
 # Plot confusion matrix
 plt.figure(figsize=(10, 8)) 
 cm = confusion_matrix(y_test, y_pred)
@@ -154,7 +154,7 @@ plt.title(f'Confusion Matrix - {best_model_name}')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
-
+#%%
 # Plot percentage confusion matrix
 plt.figure(figsize=(8,6))
 sns.heatmap(cm_percentage, annot=True, fmt='.1f', cmap='Blues',
@@ -164,7 +164,7 @@ plt.title(f'Confusion Matrix (Percentages) - {best_model_name}')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
-
+#%%
 # Plot ROC curve
 fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
 roc_auc = auc(fpr, tpr)
@@ -186,8 +186,8 @@ plt.show()
 print("\nModel Improvement Analysis:")
 print("-" * 50)
 
-# 1. Feature Selection
-print("\n1. Feature Selection Analysis:")
+# 1.1. Feature Selection
+print("\n1.1. Feature Selection Analysis:")
 selector = SelectKBest(f_classif, k='all')
 selector.fit(X_scaled, y)
 feature_scores = pd.DataFrame({
@@ -207,8 +207,8 @@ plt.show()
 
 # %% 
 
-# 2. PCA Analysis
-print("\n2. PCA Analysis:")
+# 1.2. PCA Analysis
+print("\n1.2. PCA Analysis:")
 pca = PCA()
 X_pca = pca.fit_transform(X_scaled)
 explained_variance = pca.explained_variance_ratio_
@@ -224,8 +224,8 @@ plt.show()
 
 # %% 
 
-# 3. Class Distribution Analysis
-print("\n3. Class Distribution Analysis:")
+# 1.3. Class Distribution Analysis
+print("\n1.3. Class Distribution Analysis:")
 class_dist = pd.Series(y).value_counts()
 print("\nClass Distribution:")
 print(class_dist)
@@ -238,8 +238,8 @@ plt.ylabel('Count')
 plt.show()
 
 # %% 
-# 4. Try different sampling strategies
-print("\n4. Testing Different Sampling Strategies:")
+# 1.4. Try different sampling strategies
+print("\n1.4. Testing Different Sampling Strategies:")
 
 # Create sampling strategies
 samplers = {
@@ -262,8 +262,8 @@ for name, sampler in samplers.items():
     score = accuracy_score(y_test, y_pred)
     print(f"{name:20} Accuracy: {score:.3f}")
 # %% 
-# 5. Try ensemble methods
-print("\n5. Testing Ensemble Methods:")
+# 1.5. Try ensemble methods
+print("\n1.5. Testing Ensemble Methods:")
 
 # Create ensemble of best models
 top_models = {name: model for name, model in models.items() 
@@ -282,8 +282,8 @@ print(f"Ensemble Accuracy: {ensemble_score:.3f}")
 # Compare ensemble with best single model
 print(f"Best Single Model ({best_model_name}) Accuracy: {accuracy_score(y_test, y_pred):.3f}")
 # %%
-# 6. Cross-validation with different metrics
-print("\n6. Cross-validation with different metrics:")
+# 1.6. Cross-validation with different metrics
+print("\n1.6. Cross-validation with different metrics:")
 scoring_metrics = {
     'accuracy': 'accuracy',
     'precision': 'precision',
@@ -295,13 +295,13 @@ scoring_metrics = {
 for metric_name, metric in scoring_metrics.items():
     scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring=metric)
     print(f"{metric_name:10} Score: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})")
-
+# %%
 # Recommendations based on analysis
 print("\nRecommendations for Model Improvement:")
 print("-" * 50)
 
 # Feature selection recommendation
-print("\n1. Feature Selection:")
+print("\n1.7. Feature Selection:")
 print(f"Consider using only the top {sum(cumulative_variance < 0.95)} features that explain 95% of variance")
 print("Top 5 most important features:")
 print(feature_scores.head().to_string())
@@ -309,12 +309,11 @@ print(feature_scores.head().to_string())
 
 # %% 
 
-
 print("\nOverfitting Analysis and Validation:")
 print("-" * 50)
 
-# 1. Learning Curves
-print("\n1. Learning Curves Analysis:")
+# 2.1. Learning Curves
+print("\n2. 1. Learning Curves Analysis:")
 train_sizes, train_scores, test_scores = learning_curve(
     best_model, X_scaled, y,
     cv=5,
@@ -340,8 +339,8 @@ plt.legend(loc='best')
 plt.grid(True)
 plt.show()
 # %%
-# 2. Validation Curves for key parameters
-print("\n2. Validation Curves Analysis:")
+# 2.2. Validation Curves for key parameters
+print("\n2.2. Validation Curves Analysis:")
 
 if best_model_name == 'AdaBoost':
     param_name = 'n_estimators'
@@ -385,6 +384,66 @@ plt.legend(loc='best')
 plt.grid(True)
 plt.show()
 # %%
+# After model training and before final evaluation
+print("\nDetailed Prediction Analysis and Visualizations:")
+print("-" * 50)
+# %%
+# 2.3. Prediction Probability Distribution
+print("\n2.3. Prediction Probability Distribution Analysis:")
+y_pred_proba = best_model.predict_proba(X_test)[:, 1]
+
+plt.figure(figsize=(12, 6))
+plt.hist(y_pred_proba, bins=20, alpha=0.7, color='skyblue', edgecolor='black')
+plt.axvline(x=0.5, color='red', linestyle='--', label='Decision Threshold')
+plt.title('Distribution of Prediction Probabilities')
+plt.xlabel('Probability of Recurrence')
+plt.ylabel('Count')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+
+#%%
+
+# 2.4. Confidence vs Accuracy Analysis
+print("\n2.4. Confidence vs Accuracy Analysis:")
+confidence_bins = np.linspace(0, 1, 11)
+accuracy_by_confidence = []
+
+for i in range(len(confidence_bins)-1):
+    mask = (y_pred_proba >= confidence_bins[i]) & (y_pred_proba < confidence_bins[i+1])
+    if np.sum(mask) > 0:
+        accuracy = np.mean(y_test[mask] == y_pred[mask])
+        accuracy_by_confidence.append(accuracy)
+    else:
+        accuracy_by_confidence.append(np.nan)
+
+plt.figure(figsize=(10, 6))
+plt.plot(confidence_bins[:-1], accuracy_by_confidence, 'bo-', linewidth=2)
+plt.plot([0, 1], [0, 1], 'r--', alpha=0.5, label='Perfect Calibration')
+plt.title('Model Confidence vs Accuracy')
+plt.xlabel('Prediction Confidence')
+plt.ylabel('Actual Accuracy')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+
+#%%
+# 2.5. Prediction Calibration Plot
+print("\n2.5. Prediction Calibration Analysis:")
+from sklearn.calibration import calibration_curve
+
+prob_true, prob_pred = calibration_curve(y_test, y_pred_proba, n_bins=10)
+plt.figure(figsize=(10, 6))
+plt.plot(prob_pred, prob_true, 'bo-', label='Model')
+plt.plot([0, 1], [0, 1], 'r--', label='Perfect Calibration')
+plt.title('Calibration Plot')
+plt.xlabel('Mean Predicted Probability')
+plt.ylabel('True Probability')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+
+#%%
 # 3. K-Fold Cross Validation with multiple metrics
 print("\n3. K-Fold Cross Validation with Multiple Metrics:")
 kf = KFold(n_splits=5, shuffle=True, random_state=42)
