@@ -4,17 +4,16 @@
 ![Python Version](https://img.shields.io/badge/python-3.13%2B-blue)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-## Project Title
+## Thyroid Cancer Recurrence Prediction
 
-**CancerCellModel**: An end-to-end breast cancer cell classification pipeline using scikit-learn and Python.
+This project explores the use of machine learning to predict the recurrence of thyroid cancer based on clinical and pathological patient data.
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
+- [Summary](#summary)
+- [Model Highlights](#modelhighlights)
+- [Key Results](#keyresults)
 - [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
 - [Requirements](#requirements)
 - [Contributing](#contributing)
 - [License](#license)
@@ -22,32 +21,41 @@
 
 ---
 
-## Overview
+## Summary
 
-This project demonstrates the full machine learning workflow on the UCI breast cancer dataset:
-
-- Data loading & preprocessing with pandas and scikit-learn’s `StandardScaler`
-- Model benchmarking: GaussianNB, SVM, Random Forest with cross-validation
-- Hyperparameter tuning using `GridSearchCV`
-- Model evaluation: accuracy, confusion matrix, feature importance visualization
-- Error measurements: MSE, ROC curve, Feature-wise Error Analysis..
+An independent undergraduate research project focused on building a predictive model for thyroid cancer recurrence using structured patient data (n=383). The final model, based on AdaBoost, achieved 96% accuracy and AUC 0.98 on a hold-out test set. The pipeline includes preprocessing, model selection, hyperparameter tuning, ensemble comparisons, and rigorous internal validation.
 
 ---
 
-## Features
+## Model Highlights
 
-- Clean, modular Python script (`CancerCellModel.py`)
-- Automated benchmarking of multiple classifiers
-- Plots saved to `docs/assets/images/`
-- Configurable hyperparameters via command-line arguments
+- Preprocessing: Label encoding, standardization, PCA, and SMOTE/undersampling.
+- Model Comparison: Evaluated 11 classifiers using 5-fold cross-validation.
+- Final Model: AdaBoost selected via cross-validation and tuned using GridSearchCV.
+- Validation:
+   - Hold-out test evaluation
+   - 5-fold CV on multiple metrics
+   - Bootstrap resampling (1,000 iterations)
+   - ROC curves and AUC
+   - Calibration and learning/validation curves
 
+---
+
+## Key Results
+
+- Test Accuracy: 96%
+- AUC: 0.98
+- Precision/Recall: Balanced across classes (~92–98%)
+- Calibration: Good alignment between predicted probabilities and true outcomes
+- Overfitting: No significant gap between training and test performance
+  
 ---
 
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/<your-username>/<your-repo>.git
+   git clone https://github.com/bitpest/Thyroid-Cancer-Model.git
    cd <your-repo>
    
 2. Create and activate a virtual environment:
@@ -66,7 +74,7 @@ This project demonstrates the full machine learning workflow on the UCI breast c
 
 - Run the classification script with default parameters:
   ```bash
-  python CancerCellModel.py
+  python ThyroidCancer.py
 
 ---
 
@@ -90,6 +98,7 @@ Contributions are welcome! Please fork the repo, create a branch for your featur
 ## License
 
 This project is licensed under the MIT License.
+This model was developed purely for academic purposes and is not intended for clinical deployment. All analyses are based on internal validation using a single dataset.
 
 ---
 
