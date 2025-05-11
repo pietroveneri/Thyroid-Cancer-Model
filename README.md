@@ -74,7 +74,7 @@ An independent undergraduate research project focused on building a predictive m
 
 - Run the classification script with default parameters:
   ```bash
-  python ThyroidCancer.py
+  python ThyroidCancerModel.py
 
 ---
 
