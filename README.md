@@ -56,7 +56,7 @@ An independent undergraduate research project focused on building a predictive m
 1. Clone the repository:
    ```bash
    git clone https://github.com/bitpest/Thyroid-Cancer-Model.git
-   cd <your-repo>
+   cd Thyroid-Cancer-Model
    
 2. Create and activate a virtual environment:
    ```bash
