@@ -28,6 +28,7 @@ import numpy as np
 
 #%%
 
+# Load and preprocess data
 df = pd.read_csv('Thyroid_Diff.csv')
 df.head()
 
@@ -49,15 +50,20 @@ for col in categorical_columns:
     df[col] = df[col].cat.codes
 
 #%%
-data = df.values
-# Use all features except the target variable
-X = data[:, :-1]  # All columns except the last one
-y = data[:, -1]   # Last column (Recurred)
+# Prepare features and target
+X = df.drop('Recurred', axis=1)  # All columns except the target
+y = df['Recurred']  # Target variable
 
+# Split the data first
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+# Initialize and fit scaler only on training data
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)  # Transform test data using the same scaler
 
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.33, random_state=42)
+# Now we can proceed with the scaled data
+X_train, X_test = X_train_scaled, X_test_scaled
 
 #%%
 
@@ -81,7 +87,7 @@ print("\nCross-Validation Results (5-fold):")
 print("-" * 50)
 
 for name, model in models.items():
-    scores = cross_val_score(model, X_scaled, y, cv=5, scoring='accuracy')
+    scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
     cv_results[name] = {
         'mean_score': scores.mean(),
         'std_score': scores.std()
@@ -189,9 +195,9 @@ print("-" * 50)
 # 1.1. Feature Selection
 print("\n1.1. Feature Selection Analysis:")
 selector = SelectKBest(f_classif, k='all')
-selector.fit(X_scaled, y)
+selector.fit(X_train, y_train)
 feature_scores = pd.DataFrame({
-    'Feature': df.columns[:-1],  # Exclude target variable
+    'Feature': X.columns,  # Use all features
     'Score': selector.scores_
 })
 feature_scores = feature_scores.sort_values('Score', ascending=False)
@@ -210,7 +216,7 @@ plt.show()
 # 1.2. PCA Analysis
 print("\n1.2. PCA Analysis:")
 pca = PCA()
-X_pca = pca.fit_transform(X_scaled)
+X_pca = pca.fit_transform(X_train)
 explained_variance = pca.explained_variance_ratio_
 cumulative_variance = np.cumsum(explained_variance)
 
@@ -226,7 +232,7 @@ plt.show()
 
 # 1.3. Class Distribution Analysis
 print("\n1.3. Class Distribution Analysis:")
-class_dist = pd.Series(y).value_counts()
+class_dist = pd.Series(y_train).value_counts()
 print("\nClass Distribution:")
 print(class_dist)
 
@@ -293,7 +299,7 @@ scoring_metrics = {
 }
 
 for metric_name, metric in scoring_metrics.items():
-    scores = cross_val_score(best_model, X_scaled, y, cv=5, scoring=metric)
+    scores = cross_val_score(best_model, X_train, y_train, cv=5, scoring=metric)
     print(f"{metric_name:10} Score: {scores.mean():.3f} (+/- {scores.std() * 2:.3f})")
 # %%
 # Recommendations based on analysis
@@ -315,7 +321,7 @@ print("-" * 50)
 # 2.1. Learning Curves
 print("\n2. 1. Learning Curves Analysis:")
 train_sizes, train_scores, test_scores = learning_curve(
-    best_model, X_scaled, y,
+    best_model, X_train, y_train,
     cv=5,
     n_jobs=-1,
     train_sizes=np.linspace(0.1, 1.0, 10),
@@ -358,8 +364,11 @@ else:
     param_name = 'max_iter'
     param_range = [100, 500, 1000, 2000, 3000]
 
+# Ensure y_train is a numpy array
+y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
+
 train_scores, test_scores = validation_curve(
-    best_model, X_scaled, y,
+    best_model, X_train, y_train_array,
     param_name=param_name,
     param_range=param_range,
     cv=5,
@@ -456,9 +465,15 @@ metrics = {
 
 cv_results = {metric: [] for metric in metrics.keys()}
 
-for train_index, test_index in kf.split(X_scaled):
-    X_train_fold, X_test_fold = X_scaled[train_index], X_scaled[test_index]
-    y_train_fold, y_test_fold = y[train_index], y[test_index]
+# Ensure y_train is a numpy array
+y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
+
+for train_index, test_index in kf.split(X_train):
+    # Use direct numpy array indexing
+    X_train_fold = X_train[train_index]
+    X_test_fold = X_train[test_index]
+    y_train_fold = y_train_array[train_index]
+    y_test_fold = y_train_array[test_index]
     
     # Train and predict
     best_model.fit(X_train_fold, y_train_fold)
@@ -481,20 +496,19 @@ print("\n4. Bootstrap Validation:")
 n_iterations = 1000
 bootstrap_scores = []
 
+# Ensure y_train and y_test are numpy arrays
+y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
+y_test_array = y_test.values if hasattr(y_test, 'values') else y_test
+
 for i in range(n_iterations):
     # Create bootstrap sample
-    indices = np.random.randint(0, len(X_scaled), len(X_scaled))
-    X_bootstrap = X_scaled[indices]
-    y_bootstrap = y[indices]
-    
-    # Split into train and test
-    X_train_bs, X_test_bs, y_train_bs, y_test_bs = train_test_split(
-        X_bootstrap, y_bootstrap, test_size=0.2, random_state=42
-    )
+    indices = np.random.randint(0, len(X_train), len(X_train))
+    X_bootstrap = X_train[indices]
+    y_bootstrap = y_train_array[indices]
     
     # Train and evaluate
-    best_model.fit(X_train_bs, y_train_bs)
-    score = best_model.score(X_test_bs, y_test_bs)
+    best_model.fit(X_bootstrap, y_bootstrap)
+    score = best_model.score(X_test, y_test_array)
     bootstrap_scores.append(score)
 
 # Calculate confidence intervals
@@ -503,8 +517,8 @@ print(f"\nBootstrap 95% Confidence Interval: [{confidence_interval[0]:.3f}, {con
 # %%
 # 5. Overfitting Analysis
 print("\n5. Overfitting Analysis:")
-train_score = best_model.score(X_train, y_train)
-test_score = best_model.score(X_test, y_test)
+train_score = best_model.score(X_train, y_train_array)
+test_score = best_model.score(X_test, y_test_array)
 print(f"Training Score: {train_score:.3f}")
 print(f"Test Score: {test_score:.3f}")
 print(f"Difference (Train - Test): {train_score - test_score:.3f}")
@@ -535,3 +549,15 @@ else:
     print("\nModel needs improvement before deployment.")
 
 # %%
+
+'''
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, 
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS 
+IN THE SOFTWARE
+
+'''
