@@ -98,7 +98,7 @@ Contributions are welcome! Please fork the repo, create a branch for your featur
 ## License
 
 This project is licensed under the MIT License.
-This model was developed purely for academic purposes and is not intended for clinical deployment. All analyses are based on internal validation using a single dataset.
+This model was developed purely for academic purposes and is not intended for clinical deployment.
 
 ---
 
