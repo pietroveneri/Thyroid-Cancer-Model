@@ -62,11 +62,10 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)  # Transform test data using the same scaler
 
-# Now we can proceed with the scaled data
 X_train, X_test = X_train_scaled, X_test_scaled
 
 #%%
-
+# Models list
 models = {
     'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),
     'KNN': KNeighborsClassifier(),
@@ -127,7 +126,7 @@ elif best_model_name == 'Random Forest':
         'min_samples_split': [2, 5, 10]
     }
 else:
-    param_grid = {}  # Use default parameters for other models
+    param_grid = {}  
 
 if param_grid:
     print(f"\nFine-tuning {best_model_name}...")
@@ -146,7 +145,7 @@ y_pred_proba = best_model.predict_proba(X_test)[:, 1]
 print("\nModel Evaluation Metrics:")
 print("-" * 50)
 print(classification_report(y_test, y_pred, target_names=recurred_categories))
-#
+
 # Plot confusion matrix
 plt.figure(figsize=(10, 8)) 
 cm = confusion_matrix(y_test, y_pred)
@@ -161,6 +160,7 @@ plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
 #%%
+
 # Plot percentage confusion matrix
 plt.figure(figsize=(8,6))
 sns.heatmap(cm_percentage, annot=True, fmt='.1f', cmap='Blues',
@@ -170,7 +170,9 @@ plt.title(f'Confusion Matrix (Percentages) - {best_model_name}')
 plt.xlabel('Predicted Label')
 plt.ylabel('True Label')
 plt.show()
+
 #%%
+
 # Plot ROC curve
 fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
 roc_auc = auc(fpr, tpr)
@@ -364,7 +366,6 @@ else:
     param_name = 'max_iter'
     param_range = [100, 500, 1000, 2000, 3000]
 
-# Ensure y_train is a numpy array
 y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
 
 train_scores, test_scores = validation_curve(
@@ -392,11 +393,10 @@ plt.title(f'Validation Curve for {param_name}')
 plt.legend(loc='best')
 plt.grid(True)
 plt.show()
-# %%
-# After model training and before final evaluation
 print("\nDetailed Prediction Analysis and Visualizations:")
 print("-" * 50)
 # %%
+
 # 2.3. Prediction Probability Distribution
 print("\n2.3. Prediction Probability Distribution Analysis:")
 y_pred_proba = best_model.predict_proba(X_test)[:, 1]
@@ -465,17 +465,14 @@ metrics = {
 
 cv_results = {metric: [] for metric in metrics.keys()}
 
-# Ensure y_train is a numpy array
 y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
 
 for train_index, test_index in kf.split(X_train):
-    # Use direct numpy array indexing
     X_train_fold = X_train[train_index]
     X_test_fold = X_train[test_index]
     y_train_fold = y_train_array[train_index]
     y_test_fold = y_train_array[test_index]
     
-    # Train and predict
     best_model.fit(X_train_fold, y_train_fold)
     y_pred_fold = best_model.predict(X_test_fold)
     
@@ -484,7 +481,6 @@ for train_index, test_index in kf.split(X_train):
         score = metric_func(y_test_fold, y_pred_fold)
         cv_results[metric_name].append(score)
 
-# Print results
 print("\nCross-validation results (mean ± std):")
 for metric_name, scores in cv_results.items():
     mean_score = np.mean(scores)
@@ -496,7 +492,6 @@ print("\n4. Bootstrap Validation:")
 n_iterations = 1000
 bootstrap_scores = []
 
-# Ensure y_train and y_test are numpy arrays
 y_train_array = y_train.values if hasattr(y_train, 'values') else y_train
 y_test_array = y_test.values if hasattr(y_test, 'values') else y_test
 
@@ -506,7 +501,6 @@ for i in range(n_iterations):
     X_bootstrap = X_train[indices]
     y_bootstrap = y_train_array[indices]
     
-    # Train and evaluate
     best_model.fit(X_bootstrap, y_bootstrap)
     score = best_model.score(X_test, y_test_array)
     bootstrap_scores.append(score)
@@ -543,8 +537,8 @@ print(f"Overfitting Indicator: {train_score - test_score:.3f}")
 # Save the final model if it shows good generalization
 if train_score - test_score <= 0.1:
     print("\nModel shows good generalization.")
-    #import joblib
-    #joblib.dump(best_model, 'thyroid_cancer_model.joblib')
+    # import joblib
+    # joblib.dump(best_model, 'thyroid_cancer_model.joblib')
 else:
     print("\nModel needs improvement before deployment.")
 
