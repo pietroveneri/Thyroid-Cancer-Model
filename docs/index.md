@@ -1,31 +1,22 @@
 
 
-# Cancer Cell Classification Model
+# Thyroid Cancer Prediction Model
 
-This project demonstrates an end-to-end pipeline for classifying breast cancer cells using scikit-learn:
-
-- **Data loading & preprocessing**: StandardScaler on 30 features
-- **Model comparison**: Naive Bayes, SVM, Random Forest
-- **Hyperparameter tuning**: GridSearchCV on Random Forest
-- **Metrics & visualization**: Accuracy, confusion matrix, feature importances
-
-## Demo & Results
-
-![Confusion Matrix](assets/images/confusion_matrix.png)
-![Most Important Features](assets/images/important_features.png)
-
-**Cross-validation accuracy**: 96.7%  
-
+This project explores the use of machine learning to predict the recurrence of thyroid cancer based on clinical and pathological patient data.
+- **Preprocessing**: Label encoding, standardization, PCA, and SMOTE/undersampling.
+- **Model Comparison**: Evaluated 11 classifiers using 5-fold cross-validation.
+- **Final Model**: AdaBoost selected via cross-validation and tuned using GridSearchCV.
+- **Metrics & visualization**: Accuracy, confusion matrix, feature importances exc..
 
 ## Getting Started
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/bitpest/Thyroid-Cancer-Model.git
+cd Thyroid-Cancer-Model
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run the model
-python CancerCellModel.py
+python ThyroidCancerModel.py
