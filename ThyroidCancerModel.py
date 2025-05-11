@@ -15,6 +15,8 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.decomposition import PCA
+from sklearn.model_selection import learning_curve, validation_curve, KFold
+from sklearn.metrics import  accuracy_score, precision_score, recall_score, f1_score
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.ensemble import VotingClassifier
@@ -23,9 +25,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+
 #%%
 
-df = pd.read_csv('data/Thyroid_Diff.csv')
+df = pd.read_csv('Thyroid_Diff.csv')
 df.head()
 
 # Identify categorical columns
@@ -303,38 +306,9 @@ print(f"Consider using only the top {sum(cumulative_variance < 0.95)} features t
 print("Top 5 most important features:")
 print(feature_scores.head().to_string())
 
-# Sampling strategy recommendation
-print("\n2. Sampling Strategy:")
-if class_dist[0] / class_dist[1] > 1.5:
-    print("Significant class imbalance detected. Consider using SMOTE or other sampling techniques.")
 
-# Model complexity recommendation
-print("\n3. Model Complexity:")
-if best_model_name in ['Random Forest', 'Gradient Boosting']:
-    print("Consider increasing model complexity by adding more trees or depth")
-elif best_model_name in ['SVM', 'Neural Network']:
-    print("Consider adjusting regularization parameters")
-else:
-    print("...")
-
-# Ensemble recommendation
-print("\n4. Ensemble Methods:")
-if ensemble_score > accuracy_score(y_test, y_pred):
-    print("Ensemble method shows improvement. Consider using voting or stacking of top models.")
-else:
-    print("Single model performs better. Focus on tuning the best model.")
-
-# Final model selection
-print("\n5. Final Model Selection:")
-if ensemble_score > accuracy_score(y_test, y_pred):
-    print("Recommended to use the ensemble model")
-    best_model = ensemble
-else:
-    print(f"Recommended to use the {best_model_name} model")
 # %% 
-from sklearn.model_selection import learning_curve, validation_curve, KFold
-from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall_score, f1_score
-import numpy as np
+
 
 print("\nOverfitting Analysis and Validation:")
 print("-" * 50)
